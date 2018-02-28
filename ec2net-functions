@@ -140,20 +140,20 @@ rewrite_aliases() {
   # from metadata, cross it off the stale list if present, or
   # add it to the interface otherwise. Then, remove any address
   # remaining in the stale list.
-  declare -A secondaries
   for secondary in $(/sbin/ip addr list dev ${INTERFACE} secondary \
                      |grep "inet .* secondary ${INTERFACE}" \
                      |awk '{print $2}'|cut -d/ -f1); do
-    secondaries[${secondary}]=1
+    secondaries="${secondaries}${secondary},"
   done
+  secondaries=$(echo $secondaries | sed 's/,$//')
   for alias in ${aliases}; do
-    if [[ ${secondaries[${alias}]} ]]; then
-      unset secondaries[${alias}]
+    if [ $(echo $secondaries | grep -c "$alias") -ge 1 ]; then
+      secondaries=$(echo $secondaries | sed -E "s/$alias,?//")
     else
       /sbin/ip addr add ${alias}/${PREFIX} brd + dev ${INTERFACE}
     fi
   done
-  for secondary in "${!secondaries[@]}"; do
+  for secondary in $(echo $secondaries | tr ',' ' '); do
     /sbin/ip addr del ${secondary}/${PREFIX} dev ${INTERFACE}
   done
 }
